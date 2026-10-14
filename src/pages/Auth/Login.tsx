@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { BrandLogo } from '../../components/common/BrandLogo';
-import { Mail, Lock, ArrowRight, ShieldCheck, UserCheck } from 'lucide-react';
+import { Mail, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
 
 interface LoginProps {
   navigate: (path: string) => void;
@@ -28,12 +28,6 @@ export const Login: React.FC<LoginProps> = ({ navigate, onShowToast }) => {
     } else {
       setErrorMsg(res.error || 'Login failed');
     }
-  };
-
-  // Quick fill demo member
-  const handleFillDemoMember = () => {
-    setEmail('member@pranawellness.org');
-    setPassword('Member@Prana2026!');
   };
 
   return (
@@ -111,22 +105,7 @@ export const Login: React.FC<LoginProps> = ({ navigate, onShowToast }) => {
           </button>
         </form>
 
-        {/* Quick Demo Login for Preview */}
-        <div className="pt-4 border-t border-[#A8BDA5]/20 space-y-2 text-center">
-          <p className="text-[11px] text-stone-500 font-medium">
-            {isBengali ? 'পরীক্ষামূলক সদস্য লগইন:' : 'Quick Demo Fill:'}
-          </p>
-          <div className="flex items-center justify-center">
-            <button
-              type="button"
-              onClick={handleFillDemoMember}
-              className="px-3.5 py-1.5 rounded-lg bg-[#E7EFE6] text-[#153D32] hover:bg-[#A8BDA5]/30 text-[11px] font-semibold flex items-center gap-1.5 transition-colors"
-            >
-              <UserCheck className="w-3.5 h-3.5" />
-              <span>Demo Member (Auto-fill)</span>
-            </button>
-          </div>
-        </div>
+
 
         <div className="text-center text-xs text-stone-600">
           <span>{isBengali ? 'অ্যাকাউন্ট নেই? ' : "Don't have an account yet? "}</span>

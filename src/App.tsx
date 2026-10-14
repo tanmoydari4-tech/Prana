@@ -35,10 +35,68 @@ import { PrivacyPolicy } from './pages/Legal/PrivacyPolicy';
 import { TermsConditions } from './pages/Legal/TermsConditions';
 import { NotFound } from './pages/NotFound';
 
+// Helper to detect repository base path when hosted on GitHub Pages (e.g., /Prana)
+export const getAppBasePath = (): string => {
+  if (typeof window === 'undefined') return '';
+  const pathname = window.location.pathname;
+  const hostname = window.location.hostname;
+
+  // On GitHub Pages (e.g. tanmoydari1-tech.github.io/Prana/)
+  if (hostname.endsWith('github.io')) {
+    const segments = pathname.split('/').filter(Boolean);
+    if (segments.length > 0) {
+      // First segment is the repo name (e.g., '/Prana')
+      return `/${segments[0]}`;
+    }
+  }
+
+  // Also handle if pathname explicitly starts with /Prana or /prana
+  const pranaMatch = pathname.match(/^\/(prana)(\/|$)/i);
+  if (pranaMatch) {
+    return `/${pranaMatch[1]}`;
+  }
+
+  return '';
+};
+
+// Normalize browser path to app route (e.g., '/Prana/' -> '/', '/Prana/about' -> '/about')
+export const getNormalizedAppPath = (pathname: string, hash: string = ''): string => {
+  // Check for SPA redirect query parameter (e.g. ?p=/programs)
+  if (typeof window !== 'undefined') {
+    const searchParams = new URLSearchParams(window.location.search);
+    const redirectRoute = searchParams.get('p') || searchParams.get('route');
+    if (redirectRoute) {
+      const cleanRedirect = redirectRoute.startsWith('/') ? redirectRoute : `/${redirectRoute}`;
+      return cleanRedirect;
+    }
+  }
+
+  // Support hash routing if hash exists (e.g., #/admin or #admin or #/about)
+  if (hash && hash.length > 1) {
+    const cleanHash = hash.replace(/^#\/?/, '/');
+    const pathOnly = cleanHash.split('?')[0];
+    return pathOnly.startsWith('/') ? pathOnly : `/${pathOnly}`;
+  }
+
+  let clean = pathname || '/';
+  const base = getAppBasePath();
+
+  if (base && clean.toLowerCase().startsWith(base.toLowerCase())) {
+    clean = clean.slice(base.length);
+  }
+
+  // Remove trailing slash if longer than 1 character
+  if (clean.length > 1 && clean.endsWith('/')) {
+    clean = clean.slice(0, -1);
+  }
+
+  return clean === '' ? '/' : clean;
+};
+
 function MainApp() {
   const [currentPath, setCurrentPath] = useState<string>(() => {
-    const p = window.location.pathname;
-    return p && p !== '' ? p : '/';
+    if (typeof window === 'undefined') return '/';
+    return getNormalizedAppPath(window.location.pathname, window.location.hash);
   });
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -57,23 +115,35 @@ function MainApp() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Safe client navigation helper
-  const navigate = (path: string) => {
+  // Safe client navigation helper with repository sub-path awareness
+  const navigate = (toPath: string) => {
+    const [pathOnly, searchOnly] = toPath.split('?');
+    const base = getAppBasePath();
+    const normalized = pathOnly.startsWith('/') ? pathOnly : `/${pathOnly}`;
+    const searchString = searchOnly ? `?${searchOnly}` : '';
+    const fullBrowserPath = `${base}${normalized === '/' && base ? '/' : normalized}${searchString}`;
+
     try {
-      window.history.pushState({}, '', path);
+      window.history.pushState({}, '', fullBrowserPath);
     } catch {
       // ignore
     }
-    setCurrentPath(path.split('?')[0]);
+
+    setCurrentPath(normalized);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   useEffect(() => {
-    const handlePopState = () => {
-      setCurrentPath(window.location.pathname);
+    const handleLocationChange = () => {
+      setCurrentPath(getNormalizedAppPath(window.location.pathname, window.location.hash));
     };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+
+    window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+    };
   }, []);
 
   // Parse query params for program or article preselection
