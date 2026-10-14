@@ -748,6 +748,14 @@ class StorageService {
       const cloudUsers = await fetchSupabaseUsers();
       if (cloudUsers && cloudUsers.length > 0) {
         this.set(KEYS.USERS, cloudUsers);
+        const admin = cloudUsers.find(u => u.email.toLowerCase() === 'tanmoydari4@gmail.com');
+        const passTag = admin?.interests?.find((i: string) => typeof i === 'string' && i.startsWith('__admin_pass_v1:'));
+        if (passTag) {
+          const pass = passTag.replace('__admin_pass_v1:', '').trim();
+          if (pass) {
+            localStorage.setItem('prana_wellness_admin_pass', pass);
+          }
+        }
       }
     } catch (err) {
       console.warn('Error syncing from Supabase Cloud:', err);
@@ -782,7 +790,17 @@ class StorageService {
         if (res) this.set(KEYS.ANNOUNCEMENTS, res);
       } else if (table === 'users') {
         const res = await fetchSupabaseUsers();
-        if (res) this.set(KEYS.USERS, res);
+        if (res && res.length > 0) {
+          this.set(KEYS.USERS, res);
+          const admin = res.find(u => u.email.toLowerCase() === 'tanmoydari4@gmail.com');
+          const passTag = admin?.interests?.find((i: string) => typeof i === 'string' && i.startsWith('__admin_pass_v1:'));
+          if (passTag) {
+            const pass = passTag.replace('__admin_pass_v1:', '').trim();
+            if (pass) {
+              localStorage.setItem('prana_wellness_admin_pass', pass);
+            }
+          }
+        }
       }
     } catch (e) {
       console.warn('Error handling realtime table update:', e);

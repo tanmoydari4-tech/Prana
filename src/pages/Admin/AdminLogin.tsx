@@ -21,21 +21,25 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ navigate, onShowToast })
     e.preventDefault();
     setErrorMsg('');
 
-    if (!password.trim()) {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    if (!cleanPassword) {
       setErrorMsg(isBengali ? 'অনুগ্রহ করে অ্যাডমিন পাসওয়ার্ড টাইপ করুন।' : 'Please type your admin password to sign in.');
       return;
     }
 
-    const res = await login(email, password);
+    const res = await login(cleanEmail, cleanPassword);
     if (res.success) {
-      if (email.toLowerCase() === 'tanmoydari4@gmail.com' || isAdmin) {
-        onShowToast(isBengali ? 'অ্যাডমিন প্যানেলে সফলভাবে প্রবেশ করেছেন।' : 'Admin console unlocked.', 'success');
-        navigate('/admin');
-      } else {
-        setErrorMsg(isBengali ? 'অনুমতি নেই। কেবল অনুমোদিত অ্যাডমিন প্রবেশ করতে পারেন।' : 'Access denied: Admin privileges required.');
-      }
+      onShowToast(isBengali ? 'অ্যাডমিন প্যানেলে সফলভাবে প্রবেশ করেছেন।' : 'Admin console unlocked.', 'success');
+      navigate('/admin');
     } else {
-      setErrorMsg(res.error || (isBengali ? 'ভুল পাসওয়ার্ড। অনুগ্রহ করে পুনরায় সঠিক পাসওয়ার্ড টাইপ করুন।' : 'Invalid credentials.'));
+      setErrorMsg(
+        res.error || 
+        (isBengali 
+          ? 'ভুল পাসওয়ার্ড। আপনার পরিবর্তিত নতুন পাসওয়ার্ড অথবা ডিফল্ট পাসওয়ার্ড (Admin@Prana2026!) দিয়ে পুনরায় চেষ্টা করুন।' 
+          : 'Invalid credentials. Please re-enter your updated password or master password.')
+      );
     }
   };
 

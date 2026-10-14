@@ -21,10 +21,18 @@ export const Login: React.FC<LoginProps> = ({ navigate, onShowToast }) => {
     e.preventDefault();
     setErrorMsg('');
 
-    const res = await login(email, password);
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    const res = await login(cleanEmail, cleanPassword);
     if (res.success) {
-      onShowToast(isBengali ? 'লগইন সফল হয়েছে! স্বাগতম।' : 'Welcome back to your wellness sanctuary!', 'success');
-      navigate('/dashboard');
+      if (cleanEmail === 'tanmoydari4@gmail.com') {
+        onShowToast(isBengali ? 'অ্যাডমিন হিসেবে লগইন সফল হয়েছে!' : 'Admin access granted!', 'success');
+        navigate('/admin');
+      } else {
+        onShowToast(isBengali ? 'লগইন সফল হয়েছে! স্বাগতম।' : 'Welcome back to your wellness sanctuary!', 'success');
+        navigate('/dashboard');
+      }
     } else {
       setErrorMsg(res.error || 'Login failed');
     }
@@ -107,14 +115,25 @@ export const Login: React.FC<LoginProps> = ({ navigate, onShowToast }) => {
 
 
 
-        <div className="text-center text-xs text-stone-600">
-          <span>{isBengali ? 'অ্যাকাউন্ট নেই? ' : "Don't have an account yet? "}</span>
-          <button
-            onClick={() => navigate('/register')}
-            className="font-bold text-[#153D32] hover:underline"
-          >
-            {t.nav.join}
-          </button>
+        <div className="text-center text-xs text-stone-600 space-y-2 pt-2 border-t border-[#A8BDA5]/20">
+          <div>
+            <span>{isBengali ? 'অ্যাকাউন্ট নেই? ' : "Don't have an account yet? "}</span>
+            <button
+              onClick={() => navigate('/register')}
+              className="font-bold text-[#153D32] hover:underline"
+            >
+              {t.nav.join}
+            </button>
+          </div>
+          <div>
+            <button
+              onClick={() => navigate('/admin-login')}
+              className="text-[11px] text-stone-500 hover:text-[#153D32] hover:underline inline-flex items-center gap-1"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-[#C6A66A]" />
+              <span>{isBengali ? 'অ্যাডমিন কনসোল লগইন' : 'Admin Console Sign In'}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

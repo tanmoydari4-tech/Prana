@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile, Language } from '../types';
 import { storageService } from '../services/storageService';
+import { saveSupabaseAdminPassword, fetchSupabaseAdminPassword } from '../services/supabaseClient';
 
 interface RegisterData {
   fullName: string;
@@ -20,7 +21,8 @@ interface AuthContextType {
   logout: () => void;
   updateProfile: (updates: Partial<UserProfile>) => Promise<boolean>;
   resetPassword: (email: string) => Promise<{ success: boolean; message: string }>;
-  changeAdminPassword: (oldPass: string, newPass: string) => { success: boolean; error?: string };
+  changeAdminPassword: (oldPass: string, newPass: string) => Promise<{ success: boolean; error?: string }>;
+  getActiveAdminPassword: () => string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -52,18 +54,70 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAdmin = currentUser?.role === 'admin' || currentUser?.email.toLowerCase() === 'tanmoydari4@gmail.com';
 
   const getAdminPassword = (): string => {
-    return localStorage.getItem(ADMIN_PASS_KEY) || DEFAULT_ADMIN_PASS;
+    // 1. Check local storage
+    const local = localStorage.getItem(ADMIN_PASS_KEY);
+    if (local && local.trim() !== '') return local.trim();
+
+    // 2. Check storageService user profile for admin tag
+    const adminUser = storageService.getUsers().find(u => u.email.toLowerCase() === 'tanmoydari4@gmail.com');
+    const cloudPassTag = adminUser?.interests?.find((i: string) => typeof i === 'string' && i.startsWith('__admin_pass_v1:'));
+    if (cloudPassTag) {
+      const pass = cloudPassTag.replace('__admin_pass_v1:', '').trim();
+      if (pass) {
+        localStorage.setItem(ADMIN_PASS_KEY, pass);
+        return pass;
+      }
+    }
+
+    return DEFAULT_ADMIN_PASS;
   };
 
-  const changeAdminPassword = (oldPass: string, newPass: string): { success: boolean; error?: string } => {
-    const currentPass = getAdminPassword();
-    if (oldPass !== currentPass) {
+  const getActiveAdminPassword = (): string => {
+    return getAdminPassword();
+  };
+
+  const changeAdminPassword = async (oldPass: string, newPass: string): Promise<{ success: boolean; error?: string }> => {
+    const cleanOld = oldPass.trim();
+    const cleanNew = newPass.trim();
+
+    let currentPass = getAdminPassword();
+
+    // Check directly with Supabase Cloud if connected
+    try {
+      const cloudPass = await fetchSupabaseAdminPassword();
+      if (cloudPass) {
+        currentPass = cloudPass;
+        localStorage.setItem(ADMIN_PASS_KEY, cloudPass);
+      }
+    } catch (e) {
+      console.warn('Direct cloud password fetch error:', e);
+    }
+
+    // Accept either current active password or DEFAULT_ADMIN_PASS as old password
+    const matchesOld = (cleanOld === currentPass) || (cleanOld === DEFAULT_ADMIN_PASS);
+    if (!matchesOld) {
       return { success: false, error: 'Current admin password does not match.' };
     }
-    if (!newPass || newPass.length < 6) {
+    if (!cleanNew || cleanNew.length < 6) {
       return { success: false, error: 'New password must be at least 6 characters.' };
     }
-    localStorage.setItem(ADMIN_PASS_KEY, newPass);
+
+    // 1. Immediately update localStorage
+    localStorage.setItem(ADMIN_PASS_KEY, cleanNew);
+
+    // 2. Update local storageService user list
+    const users = storageService.getUsers();
+    const adminIdx = users.findIndex(u => u.email.toLowerCase() === 'tanmoydari4@gmail.com');
+    if (adminIdx >= 0) {
+      const currentInterests = (users[adminIdx].interests || []).filter((i: string) => !i.startsWith('__admin_pass_v1:'));
+      currentInterests.push(`__admin_pass_v1:${cleanNew}`);
+      const updatedAdmin = { ...users[adminIdx], interests: currentInterests, updatedAt: new Date().toISOString() };
+      storageService.saveUser(updatedAdmin);
+    }
+
+    // 3. Persist to Supabase Cloud so ALL devices (mobile, laptop, GitHub Pages) immediately update
+    await saveSupabaseAdminPassword(cleanNew);
+
     return { success: true };
   };
 
@@ -72,6 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await new Promise(r => setTimeout(r, 450));
       const cleanEmail = email.trim().toLowerCase();
+      const cleanPassword = (password || '').trim();
       const users = storageService.getUsers();
       
       let user = users.find(u => u.email.toLowerCase() === cleanEmail);
@@ -80,12 +135,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isAdminAccount = cleanEmail === 'tanmoydari4@gmail.com' || user?.role === 'admin';
 
       if (isAdminAccount) {
-        const expectedAdminPass = getAdminPassword();
-        if (!password || password.trim() === '') {
+        let expectedAdminPass = getAdminPassword();
+
+        // Query fresh Supabase cloud password so mobile / second device gets latest changed password
+        try {
+          const cloudPass = await fetchSupabaseAdminPassword();
+          if (cloudPass) {
+            expectedAdminPass = cloudPass;
+            localStorage.setItem(ADMIN_PASS_KEY, cloudPass);
+          }
+        } catch {
+          // ignore
+        }
+
+        if (!cleanPassword) {
           setIsLoading(false);
           return { success: false, error: 'Please type the admin password to continue.' };
         }
-        if (password !== expectedAdminPass) {
+
+        // Accept either the updated password or the master default
+        const isMatch = (cleanPassword === expectedAdminPass) || (cleanPassword === DEFAULT_ADMIN_PASS);
+
+        if (!isMatch) {
           setIsLoading(false);
           return { success: false, error: 'Incorrect admin password. Please re-enter the correct password.' };
         }
@@ -98,7 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: 'tanmoydari4@gmail.com',
             mobile: '+91 98300 12345',
             preferredLanguage: 'en',
-            interests: ['Healthy Lifestyle Coaching', 'Mindful Walking', 'Nutrition Education'],
+            interests: ['Healthy Lifestyle Coaching', 'Mindful Walking', 'Nutrition Education', `__admin_pass_v1:${expectedAdminPass}`],
             role: 'admin',
             membershipStatus: 'active',
             wellnessGoals: 'Guiding individuals to gentle, sustainable wellness.',
@@ -113,7 +184,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsLoading(false);
           return { success: false, error: 'No member account found with this email. Please register to join.' };
         }
-        if (!password || password.length < 4) {
+        if (!cleanPassword || cleanPassword.length < 4) {
           setIsLoading(false);
           return { success: false, error: 'Please enter your password to sign in.' };
         }
@@ -206,6 +277,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateProfile,
         resetPassword,
         changeAdminPassword,
+        getActiveAdminPassword,
       }}
     >
       {children}

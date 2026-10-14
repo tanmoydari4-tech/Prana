@@ -15,8 +15,8 @@ import {
 } from '../types';
 
 export const SUPABASE_PROJECT_ID = 'atmnwxgvnfsrinqrzvij';
-export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${SUPABASE_PROJECT_ID}.supabase.co`;
-export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_15I7OtmTepRBdcB8mEUG8A_t_65x7Ls';
+export const SUPABASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || `https://${SUPABASE_PROJECT_ID}.supabase.co`;
+export const SUPABASE_ANON_KEY = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || 'sb_publishable_15I7OtmTepRBdcB8mEUG8A_t_65x7Ls';
 
 export let supabase: SupabaseClient | null = null;
 export let isSupabaseConfigured = false;
@@ -693,6 +693,68 @@ export function setupSupabaseRealtime(onTableChange: (tableName: string) => void
     return channel;
   } catch (err) {
     console.warn('Realtime subscription not active:', err);
+    return null;
+  }
+}
+
+/**
+ * Persists the administrative password to Supabase Cloud so that it synchronizes
+ * seamlessly across all devices, mobile phones, laptops, and GitHub Pages deployments.
+ */
+export async function saveSupabaseAdminPassword(newPass: string): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const cleanPass = newPass.trim();
+    const { data: user } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', 'tanmoydari4@gmail.com')
+      .maybeSingle();
+
+    const currentInterests: string[] = Array.isArray(user?.interests)
+      ? user.interests.filter((i: string) => typeof i === 'string' && !i.startsWith('__admin_pass_v1:'))
+      : ['lifestyle', 'nutrition', 'mindfulness'];
+
+    currentInterests.push(`__admin_pass_v1:${cleanPass}`);
+
+    const { error } = await supabase
+      .from('users')
+      .upsert({
+        uid: user?.uid || 'user-admin-1',
+        full_name: user?.full_name || 'Tanmoy Dari (Chief Wellness Director)',
+        email: 'tanmoydari4@gmail.com',
+        role: 'admin',
+        interests: currentInterests,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'email' });
+
+    return !error;
+  } catch (err) {
+    console.warn('saveSupabaseAdminPassword error:', err);
+    return false;
+  }
+}
+
+/**
+ * Fetches the active administrative password from Supabase Cloud.
+ */
+export async function fetchSupabaseAdminPassword(): Promise<string | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('interests')
+      .eq('email', 'tanmoydari4@gmail.com')
+      .maybeSingle();
+
+    if (error || !data || !Array.isArray(data.interests)) return null;
+
+    const passTag = data.interests.find((i: string) => typeof i === 'string' && i.startsWith('__admin_pass_v1:'));
+    if (passTag) {
+      return passTag.replace('__admin_pass_v1:', '').trim();
+    }
+    return null;
+  } catch {
     return null;
   }
 }

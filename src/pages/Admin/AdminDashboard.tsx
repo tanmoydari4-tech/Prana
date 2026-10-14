@@ -36,6 +36,7 @@ import {
   Check, 
   X, 
   Eye, 
+  EyeOff,
   Save, 
   ExternalLink,
   Flame,
@@ -66,7 +67,7 @@ type AdminTab =
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate, onShowToast }) => {
   const { isBengali, t, setLanguage } = useLanguage();
-  const { currentUser, isAdmin, changeAdminPassword } = useAuth();
+  const { currentUser, isAdmin, changeAdminPassword, getActiveAdminPassword } = useAuth();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
 
@@ -85,6 +86,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate, onShow
   const [currentAdminPass, setCurrentAdminPass] = useState('');
   const [newAdminPass, setNewAdminPass] = useState('');
   const [confirmAdminPass, setConfirmAdminPass] = useState('');
+  const [showCurrentActivePass, setShowCurrentActivePass] = useState(false);
+  const [isUpdatingPass, setIsUpdatingPass] = useState(false);
   const [adminPassMessage, setAdminPassMessage] = useState<{ text: string; isError: boolean } | null>(null);
 
   // Supabase status state
@@ -150,7 +153,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate, onShow
     };
   }, []);
 
-  const handleChangeAdminPassword = (e: React.FormEvent) => {
+  const handleChangeAdminPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newAdminPass !== confirmAdminPass) {
       setAdminPassMessage({
@@ -159,21 +162,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate, onShow
       });
       return;
     }
-    const res = changeAdminPassword(currentAdminPass, newAdminPass);
-    if (res.success) {
+    if (newAdminPass.length < 6) {
       setAdminPassMessage({
-        text: isBengali ? 'অ্যাডমিন পাসওয়ার্ড সফলভাবে আপডেট হয়েছে।' : 'Admin password successfully updated.',
-        isError: false
-      });
-      setCurrentAdminPass('');
-      setNewAdminPass('');
-      setConfirmAdminPass('');
-      onShowToast(isBengali ? 'পাসওয়ার্ড পরিবর্তিত হয়েছে।' : 'Admin password changed.', 'success');
-    } else {
-      setAdminPassMessage({
-        text: res.error || (isBengali ? 'বর্তমান পাসওয়ার্ডটি সঠিক নয়।' : 'Incorrect current password.'),
+        text: isBengali ? 'নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।' : 'New password must be at least 6 characters.',
         isError: true
       });
+      return;
+    }
+
+    setIsUpdatingPass(true);
+    setAdminPassMessage(null);
+
+    try {
+      const res = await changeAdminPassword(currentAdminPass, newAdminPass);
+      if (res.success) {
+        setAdminPassMessage({
+          text: isBengali
+            ? 'অ্যাডমিন পাসওয়ার্ড সফলভাবে আপডেট ও ক্লাউডে সিঙ্ক হয়েছে! যেকোনো ডিভাইস (ফোন, কম্পিউটার বা গিটহাব পেজ) থেকে নতুন পাসওয়ার্ড দিয়ে প্রবেশ করতে পারবেন।'
+            : 'Admin password successfully updated & synced to Supabase Cloud! You can now log in with the new password from any device.',
+          isError: false
+        });
+        setCurrentAdminPass('');
+        setNewAdminPass('');
+        setConfirmAdminPass('');
+        onShowToast(isBengali ? 'পাসওয়ার্ড পরিবর্তিত ও ক্লাউডে সিঙ্ক হয়েছে!' : 'Admin password updated and synced across all devices!', 'success');
+      } else {
+        setAdminPassMessage({
+          text: res.error || (isBengali ? 'বর্তমান পাসওয়ার্ডটি সঠিক নয়।' : 'Incorrect current password.'),
+          isError: true
+        });
+      }
+    } catch (err: unknown) {
+      setAdminPassMessage({
+        text: err instanceof Error ? err.message : 'Failed to update admin password',
+        isError: true
+      });
+    } finally {
+      setIsUpdatingPass(false);
     }
   };
 
@@ -1296,18 +1321,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate, onShow
               <div className="p-2.5 rounded-xl bg-[#E7EFE6] text-[#153D32]">
                 <Key className="w-5 h-5 text-[#C6A66A]" />
               </div>
-              <div>
-                <h3 className="font-serif text-lg font-semibold text-[#153D32]">
-                  {isBengali ? 'অ্যাডমিন পাসওয়ার্ড পরিবর্তন ও সুরক্ষা' : 'Admin Password & Security Settings'}
-                </h3>
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="font-serif text-lg font-semibold text-[#153D32]">
+                    {isBengali ? 'অ্যাডমিন পাসওয়ার্ড পরিবর্তন ও সুরক্ষা' : 'Admin Password & Security Settings'}
+                  </h3>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <Database className="w-3 h-3 text-emerald-600" />
+                    <span>{isBengali ? 'ক্লাউড সিঙ্ক সক্রিয়' : 'Supabase Cloud Sync'}</span>
+                  </span>
+                </div>
                 <p className="text-[11px] text-stone-500">
-                  {isBengali ? 'অ্যাডমিন প্যানেলে টাইপ করে লগইন করার গোপনীয় পাসওয়ার্ড পরিবর্তন করুন' : 'Change the master password required for entering the admin console.'}
+                  {isBengali ? 'অ্যাডমিন প্যানেলে লগইন করার পাসওয়ার্ড পরিবর্তন করুন। যেকোনো ডিভাইস থেকে পরিবর্তন করলে তা সকল ডিভাইসে সাথে সাথে কার্যকর হবে।' : 'Change the master password. Changes sync across all devices via Supabase Cloud database.'}
                 </p>
               </div>
             </div>
 
+            {/* Current Active Password Indicator */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F8F6F0] border border-[#A8BDA5]/40 text-xs">
+              <div className="flex items-center gap-2 text-stone-700">
+                <span className="font-semibold text-stone-800">
+                  {isBengali ? 'বর্তমানে সক্রিয় অ্যাডমিন পাসওয়ার্ড:' : 'Current Active Master Password:'}
+                </span>
+                <span className="font-mono bg-white px-3 py-1 rounded-lg border border-[#A8BDA5]/40 font-bold text-[#153D32] tracking-wider select-all">
+                  {showCurrentActivePass ? getActiveAdminPassword() : '••••••••••••'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCurrentActivePass(!showCurrentActivePass)}
+                className="px-3 py-1 rounded-xl bg-white border border-[#A8BDA5]/40 text-stone-700 hover:text-[#153D32] hover:bg-stone-50 text-xs font-medium flex items-center gap-1.5 shadow-2xs transition-colors"
+              >
+                {showCurrentActivePass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                <span>{showCurrentActivePass ? (isBengali ? 'পাসওয়ার্ড লুকান' : 'Hide Password') : (isBengali ? 'পাসওয়ার্ড দেখুন' : 'Reveal Current Password')}</span>
+              </button>
+            </div>
+
             {adminPassMessage && (
-              <div className={`p-3 rounded-xl border text-xs ${
+              <div className={`p-3.5 rounded-xl border text-xs font-medium ${
                 adminPassMessage.isError
                   ? 'bg-rose-50 border-rose-200 text-rose-800'
                   : 'bg-emerald-50 border-emerald-200 text-emerald-800'
@@ -1361,13 +1412,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate, onShow
                 </div>
               </div>
 
-              <div className="flex justify-end pt-2">
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <p className="text-[11px] text-stone-500">
+                  {isBengali ? 'নোট: পাসওয়ার্ড পরিবর্তন করলে তা সরাসরি ক্লাউড ডাটাবেসে সেভ হবে।' : 'Note: Password is encrypted and stored in your cloud database.'}
+                </p>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-full bg-[#153D32] hover:bg-[#0E2922] text-[#F8F6F0] font-semibold text-xs shadow-xs flex items-center gap-2"
+                  disabled={isUpdatingPass}
+                  className="px-6 py-2.5 rounded-full bg-[#153D32] hover:bg-[#0E2922] disabled:opacity-60 text-[#F8F6F0] font-semibold text-xs shadow-xs flex items-center gap-2 cursor-pointer transition-all"
                 >
-                  <Lock className="w-3.5 h-3.5 text-[#C6A66A]" />
-                  <span>{isBengali ? 'পাসওয়ার্ড আপডেট করুন' : 'Update Admin Password'}</span>
+                  {isUpdatingPass ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#C6A66A]" />
+                  ) : (
+                    <Lock className="w-3.5 h-3.5 text-[#C6A66A]" />
+                  )}
+                  <span>
+                    {isUpdatingPass 
+                      ? (isBengali ? 'ক্লাউডে আপডেট হচ্ছে...' : 'Saving to Cloud...')
+                      : (isBengali ? 'পাসওয়ার্ড আপডেট করুন' : 'Update Admin Password')}
+                  </span>
                 </button>
               </div>
             </form>
