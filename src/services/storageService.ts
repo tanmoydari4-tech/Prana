@@ -13,7 +13,33 @@ import {
   ProgramEnrollment,
   EventRegistration
 } from '../types';
-import { syncEnquiryToSupabase } from './supabaseClient';
+import {
+  isSupabaseConfigured,
+  fetchSupabaseSettings,
+  saveSupabaseSettings,
+  fetchSupabasePrograms,
+  saveSupabaseProgram,
+  deleteSupabaseProgram,
+  fetchSupabaseEvents,
+  saveSupabaseEvent,
+  deleteSupabaseEvent,
+  fetchSupabaseArticles,
+  saveSupabaseArticle,
+  deleteSupabaseArticle,
+  fetchSupabaseGallery,
+  saveSupabaseGallery,
+  deleteSupabaseGallery,
+  fetchSupabaseTestimonials,
+  saveSupabaseTestimonial,
+  deleteSupabaseTestimonial,
+  fetchSupabaseEnquiries,
+  syncEnquiryToSupabase,
+  fetchSupabaseUsers,
+  saveSupabaseUser,
+  fetchSupabaseAnnouncements,
+  saveSupabaseAnnouncement,
+  setupSupabaseRealtime
+} from './supabaseClient';
 
 // Storage keys
 const STORAGE_PREFIX = 'prana_wellness_';
@@ -624,9 +650,144 @@ const initialAnnouncements: Announcement[] = [
   }
 ];
 
-// Helper to read and write localStorage safely
+// Helper to read and write localStorage safely with Supabase Cloud Sync
 class StorageService {
   private listeners: Map<string, Set<() => void>> = new Map();
+  private hasInitializedCloud = false;
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      setTimeout(() => {
+        this.initCloudSync();
+      }, 50);
+    }
+  }
+
+  public async initCloudSync(): Promise<void> {
+    if (this.hasInitializedCloud || !isSupabaseConfigured) return;
+    this.hasInitializedCloud = true;
+
+    await this.pullAllFromCloud();
+
+    setupSupabaseRealtime((table) => {
+      this.handleCloudTableUpdate(table);
+    });
+  }
+
+  public async pullAllFromCloud(): Promise<void> {
+    if (!isSupabaseConfigured) return;
+    try {
+      // 1. Settings
+      const cloudSettings = await fetchSupabaseSettings();
+      if (cloudSettings) {
+        this.set(KEYS.SETTINGS, cloudSettings);
+      } else {
+        const localSettings = this.getSettings();
+        await saveSupabaseSettings(localSettings);
+      }
+
+      // 2. Programs
+      const cloudPrograms = await fetchSupabasePrograms();
+      if (cloudPrograms && cloudPrograms.length > 0) {
+        this.set(KEYS.PROGRAMS, cloudPrograms);
+      } else if (cloudPrograms && cloudPrograms.length === 0) {
+        for (const p of this.getPrograms()) {
+          await saveSupabaseProgram(p);
+        }
+      }
+
+      // 3. Events
+      const cloudEvents = await fetchSupabaseEvents();
+      if (cloudEvents && cloudEvents.length > 0) {
+        this.set(KEYS.EVENTS, cloudEvents);
+      } else if (cloudEvents && cloudEvents.length === 0) {
+        for (const ev of this.getEvents()) {
+          await saveSupabaseEvent(ev);
+        }
+      }
+
+      // 4. Articles
+      const cloudArticles = await fetchSupabaseArticles();
+      if (cloudArticles && cloudArticles.length > 0) {
+        this.set(KEYS.ARTICLES, cloudArticles);
+      } else if (cloudArticles && cloudArticles.length === 0) {
+        for (const art of this.getArticles()) {
+          await saveSupabaseArticle(art);
+        }
+      }
+
+      // 5. Gallery
+      const cloudGallery = await fetchSupabaseGallery();
+      if (cloudGallery && cloudGallery.length > 0) {
+        this.set(KEYS.GALLERY, cloudGallery);
+      } else if (cloudGallery && cloudGallery.length === 0) {
+        for (const item of this.getGallery()) {
+          await saveSupabaseGallery(item);
+        }
+      }
+
+      // 6. Testimonials
+      const cloudTestimonials = await fetchSupabaseTestimonials();
+      if (cloudTestimonials && cloudTestimonials.length > 0) {
+        this.set(KEYS.TESTIMONIALS, cloudTestimonials);
+      }
+
+      // 7. Enquiries
+      const cloudEnquiries = await fetchSupabaseEnquiries();
+      if (cloudEnquiries && cloudEnquiries.length > 0) {
+        this.set(KEYS.ENQUIRIES, cloudEnquiries);
+      }
+
+      // 8. Announcements
+      const cloudAnn = await fetchSupabaseAnnouncements();
+      if (cloudAnn && cloudAnn.length > 0) {
+        this.set(KEYS.ANNOUNCEMENTS, cloudAnn);
+      }
+
+      // 9. Users
+      const cloudUsers = await fetchSupabaseUsers();
+      if (cloudUsers && cloudUsers.length > 0) {
+        this.set(KEYS.USERS, cloudUsers);
+      }
+    } catch (err) {
+      console.warn('Error syncing from Supabase Cloud:', err);
+    }
+  }
+
+  private async handleCloudTableUpdate(table: string): Promise<void> {
+    try {
+      if (table === 'settings') {
+        const res = await fetchSupabaseSettings();
+        if (res) this.set(KEYS.SETTINGS, res);
+      } else if (table === 'programs') {
+        const res = await fetchSupabasePrograms();
+        if (res) this.set(KEYS.PROGRAMS, res);
+      } else if (table === 'events') {
+        const res = await fetchSupabaseEvents();
+        if (res) this.set(KEYS.EVENTS, res);
+      } else if (table === 'articles') {
+        const res = await fetchSupabaseArticles();
+        if (res) this.set(KEYS.ARTICLES, res);
+      } else if (table === 'gallery') {
+        const res = await fetchSupabaseGallery();
+        if (res) this.set(KEYS.GALLERY, res);
+      } else if (table === 'testimonials') {
+        const res = await fetchSupabaseTestimonials();
+        if (res) this.set(KEYS.TESTIMONIALS, res);
+      } else if (table === 'enquiries') {
+        const res = await fetchSupabaseEnquiries();
+        if (res) this.set(KEYS.ENQUIRIES, res);
+      } else if (table === 'announcements') {
+        const res = await fetchSupabaseAnnouncements();
+        if (res) this.set(KEYS.ANNOUNCEMENTS, res);
+      } else if (table === 'users') {
+        const res = await fetchSupabaseUsers();
+        if (res) this.set(KEYS.USERS, res);
+      }
+    } catch (e) {
+      console.warn('Error handling realtime table update:', e);
+    }
+  }
 
   private get<T>(key: string, fallback: T): T {
     try {
@@ -667,6 +828,7 @@ class StorageService {
   }
   public saveSettings(settings: WebsiteSettings): void {
     this.set(KEYS.SETTINGS, settings);
+    saveSupabaseSettings(settings).catch(e => console.warn('Supabase settings sync error:', e));
   }
 
   // --- PROGRAMS ---
@@ -682,10 +844,12 @@ class StorageService {
       list.push(program);
     }
     this.set(KEYS.PROGRAMS, list);
+    saveSupabaseProgram(program).catch(e => console.warn('Supabase program sync error:', e));
   }
   public deleteProgram(id: string): void {
     const list = this.getPrograms().filter(p => p.id !== id);
     this.set(KEYS.PROGRAMS, list);
+    deleteSupabaseProgram(id).catch(e => console.warn('Supabase program delete error:', e));
   }
 
   // --- EVENTS ---
@@ -701,10 +865,12 @@ class StorageService {
       list.push(event);
     }
     this.set(KEYS.EVENTS, list);
+    saveSupabaseEvent(event).catch(e => console.warn('Supabase event sync error:', e));
   }
   public deleteEvent(id: string): void {
     const list = this.getEvents().filter(e => e.id !== id);
     this.set(KEYS.EVENTS, list);
+    deleteSupabaseEvent(id).catch(e => console.warn('Supabase event delete error:', e));
   }
 
   // --- ARTICLES ---
@@ -720,10 +886,12 @@ class StorageService {
       list.push(article);
     }
     this.set(KEYS.ARTICLES, list);
+    saveSupabaseArticle(article).catch(e => console.warn('Supabase article sync error:', e));
   }
   public deleteArticle(id: string): void {
     const list = this.getArticles().filter(a => a.id !== id);
     this.set(KEYS.ARTICLES, list);
+    deleteSupabaseArticle(id).catch(e => console.warn('Supabase article delete error:', e));
   }
 
   // --- TESTIMONIALS ---
@@ -738,6 +906,7 @@ class StorageService {
     const list = this.get<Testimonial[]>(KEYS.TESTIMONIALS, initialTestimonials);
     list.unshift(testimonial);
     this.set(KEYS.TESTIMONIALS, list);
+    saveSupabaseTestimonial(testimonial).catch(e => console.warn('Supabase testimonial sync error:', e));
   }
   public updateTestimonialStatus(id: string, approved: boolean): void {
     const list = this.get<Testimonial[]>(KEYS.TESTIMONIALS, initialTestimonials);
@@ -745,11 +914,13 @@ class StorageService {
     if (item) {
       item.approved = approved;
       this.set(KEYS.TESTIMONIALS, list);
+      saveSupabaseTestimonial(item).catch(e => console.warn('Supabase testimonial sync error:', e));
     }
   }
   public deleteTestimonial(id: string): void {
     const list = this.get<Testimonial[]>(KEYS.TESTIMONIALS, initialTestimonials).filter(t => t.id !== id);
     this.set(KEYS.TESTIMONIALS, list);
+    deleteSupabaseTestimonial(id).catch(e => console.warn('Supabase testimonial delete error:', e));
   }
 
   // --- GALLERY ---
@@ -765,10 +936,12 @@ class StorageService {
       list.unshift(item);
     }
     this.set(KEYS.GALLERY, list);
+    saveSupabaseGallery(item).catch(e => console.warn('Supabase gallery sync error:', e));
   }
   public deleteGalleryItem(id: string): void {
     const list = this.getGallery().filter(g => g.id !== id);
     this.set(KEYS.GALLERY, list);
+    deleteSupabaseGallery(id).catch(e => console.warn('Supabase gallery delete error:', e));
   }
 
   // --- ENQUIRIES ---
@@ -881,6 +1054,7 @@ class StorageService {
     const list = this.getAnnouncements();
     list.unshift(ann);
     this.set(KEYS.ANNOUNCEMENTS, list);
+    saveSupabaseAnnouncement(ann).catch(e => console.warn('Supabase announcement sync error:', e));
   }
 
   // --- USERS ---
@@ -923,6 +1097,7 @@ class StorageService {
       list.push(user);
     }
     this.set(KEYS.USERS, list);
+    saveSupabaseUser(user).catch(e => console.warn('Supabase user sync error:', e));
   }
 }
 

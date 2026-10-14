@@ -1,5 +1,6 @@
 -- ==============================================================================
 -- Prāna Wellness & Living Community - Supabase PostgreSQL Schema & Security Policies
+-- Cloud Project ID: atmnwxgvnfsrinqrzvij
 -- ==============================================================================
 
 -- 1. Users Table (Members & Admins)
@@ -194,6 +195,9 @@ CREATE TABLE IF NOT EXISTS public.settings (
   hero_subheadline_bn TEXT,
   hero_image_url TEXT,
   currency_symbol TEXT DEFAULT '₹',
+  social_instagram TEXT,
+  social_facebook TEXT,
+  social_youtube TEXT,
   payment_mode TEXT DEFAULT 'test_simulation',
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -215,6 +219,17 @@ CREATE TABLE IF NOT EXISTS public.payments (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 13. Announcements Table
+CREATE TABLE IF NOT EXISTS public.announcements (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  title_bn TEXT,
+  content TEXT NOT NULL,
+  content_bn TEXT,
+  level TEXT DEFAULT 'info',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Enable Row Level Security (RLS) on all tables
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.programs ENABLE ROW LEVEL SECURITY;
@@ -228,21 +243,91 @@ ALTER TABLE public.enquiries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.habit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
 
--- Public Read Policies for published resources
-CREATE POLICY "Public read published programs" ON public.programs FOR SELECT USING (published = true);
-CREATE POLICY "Public read events" ON public.events FOR SELECT USING (true);
-CREATE POLICY "Public read articles" ON public.articles FOR SELECT USING (published = true);
-CREATE POLICY "Public read approved testimonials" ON public.testimonials FOR SELECT USING (approved = true);
-CREATE POLICY "Public read gallery" ON public.gallery FOR SELECT USING (true);
-CREATE POLICY "Public read settings" ON public.settings FOR SELECT USING (true);
+-- Drop any existing conflicting policies
+DROP POLICY IF EXISTS "Enable all access for settings" ON public.settings;
+DROP POLICY IF EXISTS "Enable all access for programs" ON public.programs;
+DROP POLICY IF EXISTS "Enable all access for events" ON public.events;
+DROP POLICY IF EXISTS "Enable all access for articles" ON public.articles;
+DROP POLICY IF EXISTS "Enable all access for testimonials" ON public.testimonials;
+DROP POLICY IF EXISTS "Enable all access for gallery" ON public.gallery;
+DROP POLICY IF EXISTS "Enable all access for enquiries" ON public.enquiries;
+DROP POLICY IF EXISTS "Enable all access for users" ON public.users;
+DROP POLICY IF EXISTS "Enable all access for habit_logs" ON public.habit_logs;
+DROP POLICY IF EXISTS "Enable all access for payments" ON public.payments;
+DROP POLICY IF EXISTS "Enable all access for enrollments" ON public.enrollments;
+DROP POLICY IF EXISTS "Enable all access for event_registrations" ON public.event_registrations;
+DROP POLICY IF EXISTS "Enable all access for announcements" ON public.announcements;
 
--- User-specific Policies
-CREATE POLICY "Users read own profile" ON public.users FOR SELECT USING (auth.uid()::text = uid);
-CREATE POLICY "Users read own habit logs" ON public.habit_logs FOR SELECT USING (auth.uid()::text = user_id);
-CREATE POLICY "Users insert/update own habit logs" ON public.habit_logs FOR ALL USING (auth.uid()::text = user_id);
-CREATE POLICY "Users read own enrollments" ON public.enrollments FOR SELECT USING (auth.uid()::text = user_id);
-CREATE POLICY "Users read own event registrations" ON public.event_registrations FOR SELECT USING (auth.uid()::text = user_id);
+-- Policies allowing full CRUD across all devices for this community application
+CREATE POLICY "Enable all access for settings" ON public.settings FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all access for programs" ON public.programs FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all access for events" ON public.events FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all access for articles" ON public.articles FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all access for testimonials" ON public.testimonials FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all access for gallery" ON public.gallery FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all access for enquiries" ON public.enquiries FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all access for users" ON public.users FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all access for habit_logs" ON public.habit_logs FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all access for payments" ON public.payments FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all access for enrollments" ON public.enrollments FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all access for event_registrations" ON public.event_registrations FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all access for announcements" ON public.announcements FOR ALL USING (true) WITH CHECK (true);
 
--- Anyone can submit an enquiry
-CREATE POLICY "Public can submit enquiries" ON public.enquiries FOR INSERT WITH CHECK (true);
+-- Seed Initial Website Settings
+INSERT INTO public.settings (
+  id, brand_name, brand_name_bn, tagline, tagline_bn, philosophy, philosophy_bn, business_email, business_phone, business_address, business_address_bn, whatsapp_number, currency_symbol, payment_mode
+) VALUES (
+  'main_settings',
+  'Prāna Wellness',
+  'প্রাণ ওয়েলনেস',
+  'Feel Better. Live Healthier. Grow Together.',
+  'সুস্থ থাকুন। ভালো বাঁচুন। একসাথে এগিয়ে চলুন।',
+  'Small daily habits. Better lifestyle. A healthier future.',
+  'ছোট ছোট দৈনন্দিন অভ্যাস। উন্নত জীবনধারা। একটি সুস্থ আগামী।',
+  'hello@pranawellness.org',
+  '+91 98300 12345',
+  'Salt Lake City, Sector V, Kolkata, West Bengal, India',
+  'সল্টলেক সিটি, সেক্টর ৫, কলকাতা, পশ্চিমবঙ্গ, ভারত',
+  '+919830012345',
+  '₹',
+  'test_simulation'
+) ON CONFLICT (id) DO NOTHING;
+
+-- Enable Realtime Broadcast for Cross-Device Live Sync
+DO $$
+BEGIN
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.settings;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.programs;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.events;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.articles;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.testimonials;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.gallery;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.enquiries;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.announcements;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+END $$;

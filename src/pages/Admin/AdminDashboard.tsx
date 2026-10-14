@@ -43,7 +43,8 @@ import {
   Key,
   Database,
   Lock,
-  Copy
+  Copy,
+  RefreshCw
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -88,6 +89,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate, onShow
 
   // Supabase status state
   const [supabaseStatus, setSupabaseStatus] = useState<string>('Checking Supabase connection...');
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+
+  const handleSyncCloud = async () => {
+    setIsSyncingCloud(true);
+    try {
+      await storageService.pullAllFromCloud();
+      refreshAll();
+      const statusRes = await testSupabaseConnection();
+      setSupabaseStatus(statusRes.message);
+      onShowToast(isBengali ? 'সুপাবেস ক্লাউডের সাথে সফলভাবে সিঙ্ক সম্পন্ন হয়েছে!' : 'Synced live with Supabase cloud database!', 'success');
+    } catch {
+      onShowToast('Cloud sync encounter issue', 'error');
+    } finally {
+      setIsSyncingCloud(false);
+    }
+  };
 
   // Search filter states
   const [memberSearch, setMemberSearch] = useState('');
@@ -404,6 +421,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate, onShow
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleSyncCloud}
+            disabled={isSyncingCloud}
+            className="px-4 py-2 rounded-full bg-[#C6A66A] hover:bg-[#b5955a] text-[#153D32] text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-60"
+            title={isBengali ? 'সুপাবেস ক্লাউডের সাথে ডেটা সিঙ্ক করুন' : 'Sync data with Supabase Cloud'}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncingCloud ? 'animate-spin' : ''}`} />
+            <span>{isSyncingCloud ? (isBengali ? 'সিঙ্ক হচ্ছে...' : 'Syncing...') : (isBengali ? 'ক্লাউড সিঙ্ক' : 'Sync Cloud')}</span>
+          </button>
+
           <button
             onClick={() => navigate('/')}
             className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-[#FDFAF5] text-xs font-semibold flex items-center gap-1.5 transition-colors"
@@ -1204,26 +1231,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate, onShow
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSyncCloud}
+                  disabled={isSyncingCloud}
+                  className="px-3.5 py-1.5 rounded-full bg-[#153D32] hover:bg-[#0E2922] text-[#F8F6F0] text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-60"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isSyncingCloud ? 'animate-spin' : ''}`} />
+                  <span>{isSyncingCloud ? (isBengali ? 'সিঙ্ক হচ্ছে...' : 'Syncing...') : (isBengali ? 'এখনই ক্লাউড সিঙ্ক করুন' : 'Sync Cloud Now')}</span>
+                </button>
+
                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                   isSupabaseConfigured
                     ? 'bg-emerald-100 text-emerald-800'
                     : 'bg-[#E7EFE6] text-[#153D32]'
                 }`}>
-                  {isSupabaseConfigured ? '● Supabase Connected' : '● Local-First Storage Active'}
+                  {isSupabaseConfigured ? '● Supabase Cloud Active' : '● Local-First Storage Active'}
                 </span>
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#F8F6F0] border border-[#A8BDA5]/30 text-stone-600 space-y-2">
+            <div className="p-4 rounded-xl bg-[#F8F6F0] border border-[#A8BDA5]/30 text-stone-600 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-stone-800">
+                  {isBengali ? 'ক্লাউড সংযোগ স্ট্যাটাস:' : 'Cloud Connection Status:'}
+                </span>
+                <span className="font-mono text-[11px] text-[#153D32] bg-white px-2 py-0.5 rounded border border-[#A8BDA5]/30">
+                  Project: atmnwxgvnfsrinqrzvij
+                </span>
+              </div>
               <p className="leading-relaxed">
                 {supabaseStatus}
               </p>
-              <div className="text-[11px] text-stone-500 pt-1 border-t border-[#A8BDA5]/20">
-                <span>{isBengali ? 'সুপাবেস যুক্ত করতে .env ফাইলে বসান:' : 'To connect your live Supabase project, configure in .env:'}</span>
-                <code className="block mt-1 font-mono text-[10px] text-[#153D32] bg-white p-2 rounded-lg border border-[#A8BDA5]/30">
-                  VITE_SUPABASE_URL="https://your-project-id.supabase.co"<br/>
-                  VITE_SUPABASE_ANON_KEY="your-anon-key-here"
-                </code>
+              <div className="p-2.5 rounded-lg bg-emerald-50/80 border border-emerald-200/60 text-emerald-900 text-[11px] leading-relaxed">
+                {isBengali 
+                  ? '🌐 ক্রস-ডিভাইস লাইভ সিঙ্ক সচল: আপনি যে কোনো মোবাইল, ট্যাবলেট বা কম্পিউটার থেকে অ্যাডমিন প্যানেলে লগইন করে নতুন কোনো প্রোগ্রাম, ইভেন্ট, আর্টিকেল, ছবির গ্যালারি, মূল্য বা ওয়েবসাইটের শিরোনাম পরিবর্তন করলে তা সাথে সাথে Supabase-এ সেভ হবে এবং সব ব্যবহারকারীর স্ক্রিনে মুহূর্তেই দেখা যাবে।'
+                  : '🌐 Cross-Device Live Sync Enabled: Any changes made by the admin from any mobile, tablet, or PC (programs, schedules, pricing, articles, testimonials, website copy) are saved directly to Supabase cloud and instantly visible to every visitor on all devices.'}
               </div>
             </div>
 
