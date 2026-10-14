@@ -1,0 +1,8 @@
+{
+  "name": "Prāna Wellness & Living Community",
+  "description": "Premium international fitness and wellness community dedicated to healthy lifestyle coaching, balanced nutrition, daily wellness habits, and mindful living.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

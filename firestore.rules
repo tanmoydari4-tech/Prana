@@ -1,0 +1,139 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == "tanmoydari4@gmail.com"
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 1. Users collection: private profile information
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && 
+        incoming().uid == userId && 
+        incoming().role == 'member'; // cannot self-assign admin
+      allow update: if isOwner(userId) && 
+        incoming().uid == userId && 
+        incoming().role == existing().role; // cannot escalate privilege
+      allow delete: if isAdmin();
+    }
+
+    // 2. Programs: publicly readable if published, editable only by admin
+    match /programs/{programId} {
+      allow get: if resource.data.published == true || isAdmin();
+      allow list: if resource.data.published == true || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // 3. Enrollments: members see their own enrollments, admin manages all
+    match /enrollments/{enrollmentId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 4. Events: publicly readable, admin manages
+    match /events/{eventId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // 5. Event Registrations: registered users see their RSVPs, admin manages
+    match /eventRegistrations/{regId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // 6. Articles: publicly readable if published, admin manages
+    match /articles/{articleId} {
+      allow get: if resource.data.published == true || isAdmin();
+      allow list: if resource.data.published == true || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // 7. Testimonials: approved items are public; members can submit pending; admin approves
+    match /testimonials/{testimonialId} {
+      allow get, list: if resource.data.approved == true || isAdmin();
+      allow create: if isSignedIn() && incoming().approved == false;
+      allow update, delete: if isAdmin();
+    }
+
+    // 8. Gallery: publicly readable, admin manages
+    match /gallery/{galleryId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // 9. Enquiries: public can submit; only admin can read and update status
+    match /enquiries/{enquiryId} {
+      allow create: if incoming().fullName is string && 
+        incoming().fullName.size() <= 120 && 
+        incoming().email is string && 
+        incoming().email.size() <= 150 &&
+        incoming().privacyAgreed == true;
+      allow get, list, update, delete: if isAdmin();
+    }
+
+    // 10. Habit Logs: strictly private to the individual member
+    match /habitLogs/{logId} {
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && incoming().userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // 11. Website Settings: public read, admin write
+    match /settings/{settingId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // 12. Payments: strictly private to user or admin
+    match /payments/{paymentId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // 13. Admins collection: strictly readable and writable by existing admins only
+    match /admins/{adminId} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

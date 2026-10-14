@@ -1,0 +1,293 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Registered member profile with wellness preferences",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "fullName": { "type": "string", "maxLength": 120 },
+        "email": { "type": "string", "format": "email", "maxLength": 150 },
+        "mobile": { "type": "string", "maxLength": 30 },
+        "preferredLanguage": { "type": "string", "enum": ["en", "bn"] },
+        "interests": { "type": "array" },
+        "role": { "type": "string", "enum": ["member", "admin"] },
+        "membershipStatus": { "type": "string", "enum": ["active", "pending", "suspended"] },
+        "avatarUrl": { "type": "string", "maxLength": 500 },
+        "wellnessGoals": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "fullName", "email", "role", "membershipStatus"]
+    },
+    "Program": {
+      "title": "Wellness Program",
+      "description": "Non-gym healthy lifestyle coaching and nutrition program",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "titleBn": { "type": "string", "maxLength": 200 },
+        "slug": { "type": "string", "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 3000 },
+        "descriptionBn": { "type": "string", "maxLength": 3000 },
+        "category": { "type": "string", "enum": ["lifestyle_coaching", "nutrition_education", "morning_sessions", "evening_sessions", "personal_consultation", "wellness_community"] },
+        "categoryName": { "type": "string", "maxLength": 100 },
+        "categoryNameBn": { "type": "string", "maxLength": 100 },
+        "imageUrl": { "type": "string", "maxLength": 600 },
+        "price": { "type": "number" },
+        "duration": { "type": "string", "maxLength": 100 },
+        "durationBn": { "type": "string", "maxLength": 100 },
+        "audience": { "type": "string", "maxLength": 250 },
+        "audienceBn": { "type": "string", "maxLength": 250 },
+        "published": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "slug", "category", "price", "published"]
+    },
+    "Enrollment": {
+      "title": "Program Enrollment",
+      "description": "Member registration record for a program",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "format": "email", "maxLength": 150 },
+        "userName": { "type": "string", "maxLength": 120 },
+        "programId": { "type": "string", "maxLength": 128 },
+        "programTitle": { "type": "string", "maxLength": 200 },
+        "programCategory": { "type": "string", "maxLength": 100 },
+        "amount": { "type": "number" },
+        "paymentStatus": { "type": "string", "enum": ["paid", "pending", "free_intro"] },
+        "paymentReference": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "enum": ["active", "completed", "cancelled"] },
+        "enrolledAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "programId", "paymentStatus", "status"]
+    },
+    "Event": {
+      "title": "Wellness Event",
+      "description": "Live online session, breathwork, or outdoor gathering",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "titleBn": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 3000 },
+        "descriptionBn": { "type": "string", "maxLength": 3000 },
+        "imageUrl": { "type": "string", "maxLength": 600 },
+        "startAt": { "type": "string", "format": "date-time" },
+        "endAt": { "type": "string", "format": "date-time" },
+        "timezone": { "type": "string", "maxLength": 50 },
+        "format": { "type": "string", "enum": ["online", "in_person"] },
+        "formatBn": { "type": "string", "maxLength": 100 },
+        "meetingUrl": { "type": "string", "maxLength": 500 },
+        "venue": { "type": "string", "maxLength": 300 },
+        "hostName": { "type": "string", "maxLength": 100 },
+        "hostRole": { "type": "string", "maxLength": 100 },
+        "capacity": { "type": "number" },
+        "registeredCount": { "type": "number" },
+        "registrationDeadline": { "type": "string", "format": "date-time" },
+        "price": { "type": "number" },
+        "status": { "type": "string", "enum": ["upcoming", "live", "completed", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "startAt", "format", "hostName", "status"]
+    },
+    "EventRegistration": {
+      "title": "Event Registration",
+      "description": "Member RSVP for an online or outdoor session",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "format": "email", "maxLength": 150 },
+        "userName": { "type": "string", "maxLength": 120 },
+        "eventId": { "type": "string", "maxLength": 128 },
+        "eventTitle": { "type": "string", "maxLength": 200 },
+        "registeredAt": { "type": "string", "format": "date-time" },
+        "attended": { "type": "boolean" }
+      },
+      "required": ["userId", "eventId", "registeredAt"]
+    },
+    "Article": {
+      "title": "Nutrition & Lifestyle Article",
+      "description": "Educational evidence-informed wellness article",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 250 },
+        "titleBn": { "type": "string", "maxLength": 250 },
+        "slug": { "type": "string", "maxLength": 150 },
+        "summary": { "type": "string", "maxLength": 600 },
+        "summaryBn": { "type": "string", "maxLength": 600 },
+        "content": { "type": "string", "maxLength": 25000 },
+        "contentBn": { "type": "string", "maxLength": 25000 },
+        "imageUrl": { "type": "string", "maxLength": 600 },
+        "category": { "type": "string", "enum": ["nutrition", "habits", "mindfulness", "movement"] },
+        "author": { "type": "string", "maxLength": 100 },
+        "readTime": { "type": "string", "maxLength": 50 },
+        "published": { "type": "boolean" },
+        "publishedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "slug", "summary", "category", "published"]
+    },
+    "Testimonial": {
+      "title": "Community Testimonial",
+      "description": "Authentic member review subject to moderation",
+      "type": "object",
+      "properties": {
+        "authorName": { "type": "string", "maxLength": 100 },
+        "authorLocation": { "type": "string", "maxLength": 100 },
+        "avatarUrl": { "type": "string", "maxLength": 500 },
+        "quote": { "type": "string", "maxLength": 1500 },
+        "quoteBn": { "type": "string", "maxLength": 1500 },
+        "programTaken": { "type": "string", "maxLength": 150 },
+        "rating": { "type": "number" },
+        "approved": { "type": "boolean" },
+        "isPlaceholder": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["authorName", "quote", "rating", "approved"]
+    },
+    "GalleryItem": {
+      "title": "Gallery Item",
+      "description": "Visual snapshot from workshops and mindful sessions",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 150 },
+        "titleBn": { "type": "string", "maxLength": 150 },
+        "category": { "type": "string", "enum": ["workshops", "community", "nature", "movement", "nutrition"] },
+        "imageUrl": { "type": "string", "maxLength": 600 },
+        "caption": { "type": "string", "maxLength": 500 },
+        "captionBn": { "type": "string", "maxLength": 500 },
+        "altText": { "type": "string", "maxLength": 200 },
+        "uploadedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "category", "imageUrl"]
+    },
+    "Enquiry": {
+      "title": "Contact Enquiry",
+      "description": "Direct message or consultation request",
+      "type": "object",
+      "properties": {
+        "fullName": { "type": "string", "maxLength": 120 },
+        "email": { "type": "string", "format": "email", "maxLength": 150 },
+        "mobile": { "type": "string", "maxLength": 30 },
+        "category": { "type": "string", "enum": ["general", "program", "consultation", "community", "corporate"] },
+        "message": { "type": "string", "maxLength": 2000 },
+        "privacyAgreed": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["unread", "read", "replied"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fullName", "email", "category", "message", "privacyAgreed"]
+    },
+    "HabitLog": {
+      "title": "Daily Habit Log",
+      "description": "Member daily healthy habit checklist and reflections",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "date": { "type": "string", "maxLength": 20 },
+        "walkCompleted": { "type": "boolean" },
+        "routineFollowed": { "type": "boolean" },
+        "mindfulnessDone": { "type": "boolean" },
+        "sleepScheduleFollowed": { "type": "boolean" },
+        "hydrationGoalMet": { "type": "boolean" },
+        "notes": { "type": "string", "maxLength": 500 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "date"]
+    },
+    "WebsiteSettings": {
+      "title": "Website Settings",
+      "description": "Brand details, contact info, and payment mode",
+      "type": "object",
+      "properties": {
+        "brandName": { "type": "string", "maxLength": 100 },
+        "brandNameBn": { "type": "string", "maxLength": 100 },
+        "tagline": { "type": "string", "maxLength": 200 },
+        "taglineBn": { "type": "string", "maxLength": 200 },
+        "philosophy": { "type": "string", "maxLength": 300 },
+        "philosophyBn": { "type": "string", "maxLength": 300 },
+        "businessEmail": { "type": "string", "format": "email", "maxLength": 150 },
+        "businessPhone": { "type": "string", "maxLength": 30 },
+        "businessAddress": { "type": "string", "maxLength": 300 },
+        "businessAddressBn": { "type": "string", "maxLength": 300 },
+        "whatsappNumber": { "type": "string", "maxLength": 30 },
+        "paymentMode": { "type": "string", "enum": ["test_simulation", "razorpay_live"] }
+      },
+      "required": ["brandName", "businessEmail"]
+    },
+    "Payment": {
+      "title": "Payment Record",
+      "description": "Transaction record for program or event fees",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 120 },
+        "userEmail": { "type": "string", "format": "email", "maxLength": 150 },
+        "itemType": { "type": "string", "enum": ["program", "event", "consultation"] },
+        "itemId": { "type": "string", "maxLength": 128 },
+        "itemTitle": { "type": "string", "maxLength": 200 },
+        "amount": { "type": "number" },
+        "currency": { "type": "string", "maxLength": 10 },
+        "transactionRef": { "type": "string", "maxLength": 128 },
+        "paymentMethod": { "type": "string", "enum": ["card", "upi", "netbanking", "simulated"] },
+        "status": { "type": "string", "enum": ["completed", "pending", "failed", "refunded"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "itemTitle", "amount", "transactionRef", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Individual member private profiles"
+    },
+    "/programs/{programId}": {
+      "schema": "Program",
+      "description": "Published wellness programs"
+    },
+    "/enrollments/{enrollmentId}": {
+      "schema": "Enrollment",
+      "description": "Member program enrollment records"
+    },
+    "/events/{eventId}": {
+      "schema": "Event",
+      "description": "Online live sessions and workshops"
+    },
+    "/eventRegistrations/{registrationId}": {
+      "schema": "EventRegistration",
+      "description": "Member RSVPs for events"
+    },
+    "/articles/{articleId}": {
+      "schema": "Article",
+      "description": "Nutrition and lifestyle educational articles"
+    },
+    "/testimonials/{testimonialId}": {
+      "schema": "Testimonial",
+      "description": "Authentic community reviews and moderation queue"
+    },
+    "/gallery/{galleryId}": {
+      "schema": "GalleryItem",
+      "description": "Visual highlights and workshop photos"
+    },
+    "/enquiries/{enquiryId}": {
+      "schema": "Enquiry",
+      "description": "Contact messages and consultation enquiries"
+    },
+    "/habitLogs/{logId}": {
+      "schema": "HabitLog",
+      "description": "Daily habit logs per member"
+    },
+    "/settings/{settingId}": {
+      "schema": "WebsiteSettings",
+      "description": "Global website configuration"
+    },
+    "/payments/{paymentId}": {
+      "schema": "Payment",
+      "description": "Financial and transaction records"
+    },
+    "/admins/{adminId}": {
+      "schema": "User",
+      "description": "Collection of authorized admin UIDs"
+    }
+  }
+}
